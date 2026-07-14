@@ -303,11 +303,13 @@ class SimulationHelper:
 
         Parameters are already idouble from tape recording context.
         Returns final state as list of idouble for cost evaluation.
+        Collects trajectory in self._tape_trajectory for trajectory-based costs.
         """
         zeta_indices = [i for i, info in enumerate(self.model.STATE_INFO)
                         if 'zeta' in info.get('name', '').lower()]
 
         id_dt = aadc.idouble(float(dt))
+        self._tape_trajectory = [list(st)]  # initial state
 
         for step in range(total_steps):
             t_step = step * dt
@@ -323,6 +325,10 @@ class SimulationHelper:
             for z in zeta_indices:
                 st[z] = aadc.iif(st[z] >= 0.0, st[z], aadc.idouble(0.0))
                 st[z] = aadc.iif(st[z] <= 1.0, st[z], aadc.idouble(1.0))
+
+            # Store post-pre_time trajectory on tape
+            if step >= self.pre_steps:
+                self._tape_trajectory.append(list(st))
 
         return st
 
@@ -993,9 +999,27 @@ class SimulationHelper:
 
         res = aadc.evaluate(self._tape_funcs, request, inputs, self._aad_workers)
 
+        cost = float(np.asarray(res[0][self._tape_r_cost]).flat[0])
         dJdp = np.array([float(np.asarray(res[1][self._tape_r_cost][self._tape_a_p[j]]).flat[0])
                          for j in range(m)])
-        return dJdp
+        return cost, dJdp
+
+    def evaluate_cost_tape(self):
+        """Evaluate cost only via tape replay (no gradient). Consistent with compute_gradient_tape."""
+        if not hasattr(self, '_tape_funcs') or self._tape_funcs is None:
+            raise RuntimeError("Tape not recorded yet. Call compute_gradient_tape first.")
+
+        m = len(self._ad_param_names)
+        variables_all = list(self._numeric_variables_all)
+        for const_pos, const_idx in enumerate(self.constant_indices):
+            variables_all[const_idx] = self.variables[const_pos]
+
+        p_vals = [float(variables_all[idx]) for idx in self._ad_param_var_indices]
+        inputs = {self._tape_a_p[i]: p_vals[i] for i in range(m)}
+        request = {self._tape_r_cost: []}  # no derivatives
+
+        res = aadc.evaluate(self._tape_funcs, request, inputs, self._aad_workers)
+        return float(np.asarray(res[0][self._tape_r_cost]).flat[0])
 
     def compute_gradient_batch(self, param_array, cost_func_idouble=None):
         """
@@ -1120,7 +1144,8 @@ class SimulationHelper:
                     for i in range(1, n):
                         result = result + st[i] * st[i]
                     return result
-            return self.compute_gradient_tape(cost_idouble)
+            _cost, grad = self.compute_gradient_tape(cost_idouble)
+            return grad
 
         # Discrete adjoint path
         if not hasattr(self, '_rk_data') or self._rk_data is None:

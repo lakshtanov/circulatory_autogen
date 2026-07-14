@@ -2234,9 +2234,23 @@ class OpencorParamID():
     # ---- Backend-agnostic cost/gradient interface ----
 
     def get_cost(self, param_vals):
-        """Compute cost J(p), dispatching to CasADi or AADC or numpy."""
+        """Compute cost J(p), dispatching to CasADi or AADC or numpy.
+
+        For aadc_python with do_ad=True: evaluates cost through the AADC tape
+        to ensure consistency with get_gradient() (same computation path).
+        """
         if self.model_type == 'casadi_python':
             return float(self.get_cost_ca(param_vals))
+        elif self.model_type == 'aadc_python' and getattr(self, 'do_ad', False):
+            # Use tape evaluation for consistency with get_gradient().
+            if not (hasattr(self.sim_helper, '_tape_funcs') and
+                    self.sim_helper._tape_funcs is not None):
+                # First call — record tape via get_gradient
+                self.get_gradient(param_vals)
+            # Replay tape with current params
+            param_names_raw = self.param_id_info["param_names"]
+            self.sim_helper.set_param_vals(param_names_raw, param_vals)
+            return float(self.sim_helper.evaluate_cost_tape())
         else:
             return float(self.get_cost_from_params(param_vals))
 
@@ -2281,7 +2295,6 @@ class OpencorParamID():
                                  "AADC gradient currently supports variable parameters only.")
             else:
                 raise ValueError(f"Param '{pname}' not found by name resolver.")
-            ad_indices.append(idx)
         self.sim_helper._ad_param_var_indices = ad_indices
 
         # Build cost function that works with idouble on tape.
@@ -2371,7 +2384,8 @@ class OpencorParamID():
                         continue
 
                     gt_s = gt_series[series_idx]
-                    std_s = float(std_series[series_idx]) if series_idx < len(std_series) else 1.0
+                    std_raw = std_series[series_idx] if series_idx < len(std_series) else 1.0
+                    std_s = float(std_raw[0]) if hasattr(std_raw, '__len__') else float(std_raw)
                     w_s = float(weights_series[series_idx]) if series_idx < len(weights_series) else 1.0
 
                     if w_s > 0 and gt_s is not None:
@@ -2385,7 +2399,9 @@ class OpencorParamID():
             return cost
 
         # Run forward + reverse on AADC tape
-        grad = self.sim_helper.compute_gradient_tape(cost_on_tape)
+        cost, grad = self.sim_helper.compute_gradient_tape(cost_on_tape)
+        # Cache the tape cost so get_cost() can return the same value
+        self._aadc_tape_cost = cost
         return grad
     
     def get_obs_ca(self, param_vals, get_all_series=False):

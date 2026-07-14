@@ -466,7 +466,8 @@ def test_3compartment_gradient_vs_fd_aadc(aadc_licensed, models_3compartment):
     def cost_fn(st, p):
         return st[sidx] * st[sidx]
 
-    g_ad = sim.compute_gradient_tape(cost_fn)[0]  # license check happens here
+    _, g_ad_arr = sim.compute_gradient_tape(cost_fn)  # license check happens here
+    g_ad = g_ad_arr[0]
 
     pv = float(sim._numeric_variables_all[pidx])
     h = abs(pv) * 1e-5 if pv != 0 else 1e-5

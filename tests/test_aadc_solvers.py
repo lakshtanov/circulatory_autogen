@@ -154,7 +154,7 @@ def test_aadc_gradient_vs_fd(aadc_licensed, base_user_inputs, resources_dir,
         return st[si] * st[si]
 
     # AD gradient
-    grad = sim.compute_gradient_tape(cost_fn)
+    _, grad = sim.compute_gradient_tape(cost_fn)
 
     # FD on same tape
     pv = float(sim._numeric_variables_all[pidx])
@@ -238,7 +238,7 @@ def test_aadc_implicit_euler_ift_gradient(aadc_licensed, base_user_inputs, resou
         return st[0] * st[0] + st[1] * st[1]
 
     # AD gradient
-    grad = sim.compute_gradient_tape(cost_fn)
+    _, grad = sim.compute_gradient_tape(cost_fn)
 
     # FD on same tape
     pv = float(sim._numeric_variables_all[pidx])
