@@ -81,7 +81,7 @@ runs:
         # notice that the update as a whole came back partial. So: notice it, and
         # re-run. Retrying the update is cheap next to a lost job, and a stale
         # index is exactly what a second update fixes.
-        packages=(libopenmpi-dev openmpi-bin libsundials-dev build-essential)
+        packages=(libopenmpi-dev openmpi-bin libsundials-dev build-essential libxml2)
 
         apt_update_is_complete() {
           sudo apt-get update 2>&1 | tee /tmp/ca-apt-update.log
