@@ -29,7 +29,11 @@ permissions:
 
 jobs:
   benchmarks:
-    runs-on: ubuntu-latest
+    # Pinned to 24.04 (LTS): ubuntu-latest migrated to 26.04, whose libxml2 is 2.15 /
+    # SONAME libxml2.so.16 (package libxml2-16) -- the old libxml2.so.2 is gone, and the
+    # libcellml PyPI wheel is linked against libxml2.so.2, so no apt package fixes it on 26.04.
+    # 24.04 still ships libxml2.so.2 (via libxml2t64, installed by install-system-deps).
+    runs-on: ubuntu-24.04
     # Without this the job inherits GitHub's 6-hour default. A hung leg (the AADC path has gone
     # silent for 87 minutes against an 8.6 s nominal) then burns the whole budget before failing.
     timeout-minutes: 180
