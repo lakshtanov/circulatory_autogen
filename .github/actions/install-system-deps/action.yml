@@ -81,11 +81,7 @@ runs:
         # notice that the update as a whole came back partial. So: notice it, and
         # re-run. Retrying the update is cheap next to a lost job, and a stale
         # index is exactly what a second update fixes.
-        # libxml2 runtime (provides libxml2.so.2, needed by the libcellml wheel). The package
-        # is 'libxml2t64' since the 24.04/26.04 time_t transition (plain 'libxml2' has no
-        # installation candidate on ubuntu-26.04), 'libxml2' on older images -- pick what exists.
-        if apt-cache show libxml2t64 >/dev/null 2>&1; then XMLRT=libxml2t64; else XMLRT=libxml2; fi
-        packages=(libopenmpi-dev openmpi-bin libsundials-dev build-essential "$XMLRT")
+        packages=(libopenmpi-dev openmpi-bin libsundials-dev build-essential)
 
         apt_update_is_complete() {
           sudo apt-get update 2>&1 | tee /tmp/ca-apt-update.log
@@ -99,6 +95,16 @@ runs:
           echo "::warning::apt-get update fell back to a stale index (attempt ${attempt}/3); retrying"
           sleep $((attempt * 10))
         done
+
+        # libxml2 runtime (libxml2.so.2, needed by the libcellml wheel): 'libxml2t64' since the
+        # 24.04/26.04 t64 transition (plain 'libxml2' has no installation candidate on
+        # ubuntu-26.04), 'libxml2' on older images. Resolved here -- AFTER apt-get update -- so
+        # apt-cache sees a fresh index (a pre-update probe wrongly fell back and the install 404'd).
+        if apt-cache show libxml2t64 2>/dev/null | grep -q '^Package:'; then
+          packages+=(libxml2t64)
+        else
+          packages+=(libxml2)
+        fi
 
         # Even a complete update can race a mirror mid-publish, so the install
         # gets one refresh-and-retry of its own rather than failing the job on a
