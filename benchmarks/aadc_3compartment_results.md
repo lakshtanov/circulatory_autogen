@@ -3,6 +3,15 @@
 Date: 2026-07-24 (updated)
 Branch: feat/aadc-algebraic-obs
 
+> **STATUS — SUPERSEDED (kept as a development record).** The "Fair Comparison" table just below is the
+> *original* Python-loop IFT driver (2026-07-24), where AADC was ~10x **slower** than CasADi. That driver has
+> since been **replaced** by the AADC-tape / kernel-replay driver (`bdf_kernel` / `bdf_tape`, one BDF step
+> recorded once and replayed in compiled C++). Current result: AADC semi-implicit is **~10x FASTER than
+> CasADi overall** (16 s vs 153 s over 70 optimiser calls; ~0.2 s vs 2.0 s per eval) at the same accuracy
+> (AD/FD = 1.000), and **16-20x faster than CasADi/FD on the non-stiff FitzHugh-Nagumo** model. See the
+> Technical Report (`finbar_stiff_ode_report`) and the "Tape approach" section lower in this file for the
+> current numbers. Do not read the table below as the current performance.
+
 ## Fair Comparison (same problem, same optimizer)
 
 3compartment cardiovascular model, 27 states, 4 params, pre_time=20s, sim_time=2s.
